@@ -1191,7 +1191,9 @@ class Robot3D {
       }
     }
     // 三角脸：沿头球表面铺一块弯的网格，贴三角脸的画面（左上、右上、下尖对应面板像素的三角）
-    this.tex = new THREE.CanvasTexture(this.tri.out); this.tex.encoding = THREE.sRGBEncoding; this.tex.anisotropy = 4;
+    // 贴图用一块尺寸固定的画布：新版 three.js 贴图第一次上传后尺寸就定死了，而三角脸的画布会变尺寸（第一帧、切换灯珠预览）
+    this.texCanvas = document.createElement('canvas'); this.texCanvas.width = LW * 3; this.texCanvas.height = LH * 3;
+    this.tex = new THREE.CanvasTexture(this.texCanvas); this.tex.encoding = THREE.sRGBEncoding; this.tex.anisotropy = 4;
     const N = 28, pos = [], uv = [], idx = [], { c, r: R } = HEAD, P = (u, v) => {     // u: 左→右，v: 上沿→下尖
       const top = [lerp(VISOR.tl[0], VISOR.tr[0], u), lerp(VISOR.tl[1], VISOR.tr[1], u)];
       const y = lerp(top[0], VISOR.ap[0], v), z = lerp(top[1], VISOR.ap[1], v);
@@ -1281,6 +1283,8 @@ class Robot3D {
     this.cam.lookAt(t);
   }
   frame() {
+    const tc = this.texCanvas.getContext('2d'); tc.imageSmoothingEnabled = !DOTS;
+    tc.drawImage(this.tri.out, 0, 0, this.texCanvas.width, this.texCanvas.height);
     this.tex.needsUpdate = true;
     const tmp = new THREE.Color();
     for (const side of ['left', 'right']) {
