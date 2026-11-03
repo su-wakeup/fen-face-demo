@@ -1338,7 +1338,7 @@ if (MODE === 'triangle') {
           <div class="head"><div class="seam"><i></i><i></i><i></i></div><div class="slot"></div><span class="num">03</span><div class="grille"></div><div class="spill"></div></div>
           <div class="visor"><canvas aria-label="三角脸"></canvas></div>
         </div>
-        <div class="view-toggle controls"><button id="b-dots" aria-pressed="false">按灯珠看</button><button id="b-auto">自动走一遍</button><button id="b-eye">眼色：冰蓝</button><button id="b-style">眼神：写实猫眼</button></div>
+        <div class="view-toggle controls"><button id="b-dots" aria-pressed="false">按灯珠看</button><button id="b-auto">自动走一遍</button><button id="b-eye">眼色：冰蓝</button><button id="b-style">眼神：写实猫眼</button><button id="b-tilt" hidden aria-pressed="false">体感跟随</button></div>
       </div>
       <div class="panel" id="panel"></div>
     </section>
@@ -1369,6 +1369,32 @@ if (MODE === 'triangle') {
   };
   app.addEventListener('pointermove', lookAt);
   app.addEventListener('pointerdown', lookAt);                                  // 手机没有鼠标：点一下、手指滑过，眼睛就看过去
+  // 体感跟随（手机陀螺仪）：拿着手机左右倾斜、前后俯仰，就像人围着机器人走动，眼睛一路跟着“你”。
+  // 以开启时手机的姿势为正前方；苹果要点按钮授权（iOS 规定），安卓打开就有。点、滑照样能用。
+  const tiltBtn = document.getElementById('b-tilt'), touch = matchMedia('(pointer: coarse)').matches;
+  let tilt = null;
+  const onTilt = e => {
+    if (e.gamma == null || !tilt) return;
+    if (tilt.base == null) tilt.base = [e.gamma, e.beta];
+    const cl = v => Math.max(-1, Math.min(1, v));
+    tilt.x = lerp(tilt.x, cl((e.gamma - tilt.base[0]) / 22), .35); tilt.y = lerp(tilt.y, cl(-(e.beta - tilt.base[1]) / 18), .35);
+    tri.look = { x: tilt.x, y: tilt.y, at: performance.now() };
+  };
+  const tiltOn = on => {
+    tilt = on ? { x: 0, y: 0, base: null } : null;
+    tiltBtn.setAttribute('aria-pressed', on); tiltBtn.textContent = on ? '体感跟随：开' : '体感跟随';
+  };
+  if (touch && 'DeviceOrientationEvent' in window) {
+    tiltBtn.hidden = false;
+    addEventListener('deviceorientation', onTilt);
+    const ios = typeof DeviceOrientationEvent.requestPermission === 'function';
+    if (!ios) tiltOn(true);                                                       // 安卓：直接开
+    tiltBtn.onclick = () => {
+      if (tilt) return tiltOn(false);
+      if (ios) DeviceOrientationEvent.requestPermission().then(r => tiltOn(r === 'granted')).catch(() => tiltOn(false));
+      else tiltOn(true);
+    };
+  }
   const D = () => link.demo, Lf = { direction: -1 };
   const set = fn => { D().reset(); fn(D().body); D().push(); };
   const dev = (device, code, title, severity, who) => b => b.devices.push({ key: `dev:${device}`, kind: 'device', device, code, title, severity, who });
@@ -1377,7 +1403,7 @@ if (MODE === 'triangle') {
     ['和顾客', [
       ['待机', () => { set(() => {}); D().express('idle'); }, '没人的时候', '天蓝深呼吸，每分钟 15 次', '眼皮半垂、慢慢四处看；一分钟没人下起数字雨（屏保），有人走近雨从中间分开、眼睛出来', '—'],
       ['屏保', () => { set(() => {}); D().express('screensaver'); }, '一分钟没人', '天蓝深呼吸', '数字雨：白色领头字、由亮到暗的绿（苏亮 2024 年的屏保）', '—'],
-      ['有人走近', () => { set(() => {}); D().express('attention', Lf); }, '注视', '天蓝呼吸', '先眨一下，再把目光锁到人身上，瞳孔放大；人走到哪眼睛跟到哪（演示里移动鼠标，手机上点一下或手指滑过）；左上角“你”标出人在哪边', '—'],
+      ['有人走近', () => { set(() => {}); D().express('attention', Lf); }, '注视', '天蓝呼吸', '先眨一下，再把目光锁到人身上，瞳孔放大；人走到哪眼睛跟到哪（电脑上移动鼠标；手机上打开“体感跟随”后左右倾斜、前后俯仰手机，或点一下、手指滑过）；左上角“你”标出人在哪边', '—'],
       ['倾听', () => { set(() => {}); D().express('listening', Lf); }, '在听', '说话人那一侧的肩灯亮、另一侧暗', '边框朝说话人那侧最亮，人声波点从那侧流进来被眼睛“吸收”，偶尔轻点头', '—'],
       ['思考', () => { set(() => {}); D().chain([[1600, 'thinking', { phase: 'understand' }], [1600, 'thinking', { phase: 'recipe' }], [1600, 'thinking', { phase: 'plan' }], [1600, 'thinking', { phase: 'weigh' }], [2600, 'thinking', { phase: 'confirm' }], [1, 'idle']]); }, '在想（五个阶段）', '不变', '先移开视线，换成暖金光点，身后一条淡金 ∞（思考的记号）：理解需求一行跳、调取配方叠起来、规划步骤绕圈、权衡选项起伏、确认执行沿 ∞ 走并拖出光尾；一颗金光沿边框绕行', '—'],
       ['说话后交还', () => { set(() => {}); D().chain([[2600, 'speaking'], [1, 'listening', Lf]]); }, '说完一句，轮到你', '两边随声音起伏', '带笑意、嘴线和音量条随音节动；说完眼睛略睁大，光晕扫向对方', '—'],
